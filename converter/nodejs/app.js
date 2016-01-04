@@ -82,7 +82,7 @@ function generateStringVideoFrames(tempDirName, delimiterChar){
         return base64Img(path.resolve(tempDirName, elem));
     })
 
-    return fileList.length + delimiterChar + base64Mime + delimiterChar + base64Files.join(delimiterChar);
+    return fileList.length + delimiterChar + base64Mime + delimiterChar + base64Files.join(delimiterChar) + delimiterChar;
 }
 
 function base64Img(src) {
