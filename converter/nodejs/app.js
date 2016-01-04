@@ -3,7 +3,6 @@ var fs = require('fs'),
     mime = require('mime'),
     path = require('path'),
     ffmpeg = require('fluent-ffmpeg'),
-    stream = require('stream'),
     mkdirp = require('mkdirp');
 
 /*
@@ -20,8 +19,8 @@ if(process.argv.length > 3) {
         pathVideoFrame = process.argv[3],
         startVideoTime = parseInt(process.argv[4]),
         endVideoTime = parseInt(process.argv[5]),
-        tempDirName = path.resolve('/tmp/', '.images');
-    var json = {};
+        tempDirName = path.resolve('/tmp/', '.images'),
+        delimiterChar = '|';
 
     Promise.resolve().then(function(){
         createOrCleanTempDir(tempDirName);
@@ -30,8 +29,7 @@ if(process.argv.length > 3) {
         return createVideoFrames(pathVideo, startVideoTime, endVideoTime, tempDirName);
     }).
     then(function(){
-        json.frames = generateStringVideoFrames(tempDirName);
-        saveVideoFrame(pathVideoFrame, JSON.stringify(json));
+        saveVideoFrame(pathVideoFrame, generateStringVideoFrames(tempDirName, delimiterChar));
     }).
     catch(function(err){
         console.log('Error -', err);
@@ -73,15 +71,22 @@ function createVideoFrames(_path, startTime, endTime, tempDirName){
     });
 }
 
-function generateStringVideoFrames(tempDirName){
-    return fs.readdirSync(tempDirName).sort().map(function(elem, index){
+function generateStringVideoFrames(tempDirName, delimiterChar){
+    var fileList = fs.readdirSync(tempDirName).sort();
+
+    if (fileList.length == 0){
+        throw new Error('Directory with frames is empty');
+    }
+    var base64Mime = util.format('data:%s;base64', mime.lookup(path.resolve(tempDirName, fileList[0])));
+    var base64Files = fileList.map(function(elem, index){
         return base64Img(path.resolve(tempDirName, elem));
     })
+
+    return fileList.length + delimiterChar + base64Mime + delimiterChar + base64Files.join(delimiterChar);
 }
 
 function base64Img(src) {
-    var data = fs.readFileSync(src).toString('base64');
-    return util.format('data:%s;base64,%s', mime.lookup(src), data);
+    return fs.readFileSync(src).toString('base64');
 }
 
 function saveVideoFrame(_path, data){
