@@ -18,15 +18,15 @@
     </style>
 </head>
 <body>
-  <div id="my-player-01" class="frameplayer" data-vidsrc="videos/dragons.json"></div>
-  <div id="my-player-02" class="frameplayer" data-vidsrc="videos/video02.json"></div>
+  <div id="my-player-01" class="frameplayer" data-vidsrc="videos/dragons2.vf"></div>
+  <div id="my-player-02" class="frameplayer" data-vidsrc="videos/dragons.vf"></div>
 
 
   <!-- Development -->
-  <!-- <script src="src/frameplayer.js"></script> -->
+  <script src="src/frameplayer.js"></script>
 
   <!-- Production -->
-  <script src="dist/frameplayer.min.js"></script>
+  <!-- <script src="dist/frameplayer.min.js"></script> -->
 
   <script>
       var fpOptions = ({
@@ -42,11 +42,10 @@
       var player01 = new FramePlayer('my-player-01', fpOptions);
 
       fpOptions.autoplay = false
-      var player02 = new FramePlayer('my-player-02', fpOptions);
+    //   var player02 = new FramePlayer('my-player-02', fpOptions);
 
       player01.play();
-      player02.gotoFrame(30);
-
+    //   player02.gotoFrame(20);
   </script>
 </body>
 </html>
