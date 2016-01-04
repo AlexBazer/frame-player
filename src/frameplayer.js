@@ -4,14 +4,14 @@
 
     @author: Vagner Santana
     @link: http://github.com/vagnervjs/frame-video
-    @version: 0.2.0
+    @version: 0.3.0
     @since: 04/10/2013
 */
 
 var FramePlayer = function(el, options) {
     this.divCont = document.getElementById(el);
     this.elem = el;
-    this.jsonVideoSrc = this.divCont.getAttribute('data-vidsrc');
+    this.videoSrc = this.divCont.getAttribute('data-vidsrc');
     this.rate = 20,
     this.controls = true,
     this.paused = false,
@@ -29,6 +29,12 @@ var FramePlayer = function(el, options) {
     this.canvas = document.createElement('canvas');
     this.context = this.canvas.getContext('2d');
     this.divCont.appendChild(this.canvas);
+
+    this.videoFrames = [];
+    this.totalNumOfFrames = 0;
+    this.frameBase64Mime;
+    this.animationFrameId;
+    this.render(this);
 };
 
 FramePlayer.prototype.setOptions = function(options) {
@@ -48,7 +54,7 @@ FramePlayer.prototype.setOptions = function(options) {
 
     this.divCont.style.width = this.width;
     this.divCont.style.height = this.height;
-    
+
     if(this.controls) {
         this.createControlBar();
     }
@@ -59,37 +65,44 @@ FramePlayer.prototype.render = function(player) {
     var now,
         then = Date.now(),
         interval = 1000/player.rate,
-        delta,
-        videoFramesNum = player.jsonVideoFile.frames.length;
+        delta;
+    if (player.animationFrameId){
+        window.cancelAnimationFrame(player.animationFrameId);
+    }
 
     var processFrame = function() {
-
         now = Date.now();
         delta = now - then;
 
         if (delta > interval) {
             then = now - (delta % interval);
-
-            if(!player.paused) {
-
+            console.log(player.currentFrame, player.videoFrames.length);
+            if(!player.paused && (player.currentFrame < player.videoFrames.length-1 || player.totalNumOfFrames == player.videoFrames.length)) {
+                
                 player.currentFrame = (player.backwards) ? player.currentFrame -= 1 : player.currentFrame += 1;
 
-                if (player.currentFrame >= videoFramesNum) player.currentFrame = 0;
-                else if (player.currentFrame < 0) player.currentFrame = videoFramesNum-1;
+                if (player.currentFrame >= player.totalNumOfFrames) {
+                    player.currentFrame = 0;
+                }
+                else if (player.currentFrame < 0) player.currentFrame = player.totalNumOfFrames-1;
 
                 player.drawFrame(player);
             }
         }
 
-        window.requestAnimationFrame(processFrame);
+        player.animationFrameId = window.requestAnimationFrame(processFrame);
     };
 
-
-    window.requestAnimationFrame(processFrame);
+    player.animationFrameId = window.requestAnimationFrame(processFrame);
 };
 
 FramePlayer.prototype.drawFrame = function(player) {
-    player.img.src = player.jsonVideoFile.frames[player.currentFrame];
+
+    if (!player.videoFrames[player.currentFrame]){
+        return
+    }
+
+    player.img.src = player.frameBase64Mime + ',' + player.videoFrames[player.currentFrame];
     player.context.drawImage(player.img, 0, 0, player.canvas.width, player.canvas.height);
 };
 
@@ -184,7 +197,7 @@ FramePlayer.prototype.createControlBar = function() {
 };
 
 FramePlayer.prototype.play = function() {
-    this.getFile(this.jsonVideoSrc, function(player) {
+    this.getFile(this.videoSrc, function(player) {
         if (player.paused) {
             player.render(player);
             player.drawFrame(player);
@@ -201,6 +214,10 @@ FramePlayer.prototype.resume = function() {
     btnPlay.style.display = 'none';
     btnPause.style.display = 'block';
     this.paused = false;
+
+    if (this.videoFrames.length == 0){
+        this.play();
+    }
 };
 
 FramePlayer.prototype.pause = function() {
@@ -225,9 +242,10 @@ FramePlayer.prototype.gotoFrame = function(value) {
 
     this.currentFrame = this.startFrame = this.toFrameInput.value = value;
 
-    if (this.jsonVideoFile === undefined) {
+    if (this.videoFrames.length == 0){
         this.play();
-    } else {
+    }
+    else{
         this.drawFrame(this);
     }
 };
@@ -256,31 +274,31 @@ FramePlayer.prototype.setFilter = function(filter) {
 FramePlayer.prototype.getFile = function(src, callback) {
     var _HTTP = new XMLHttpRequest(),
         _self = this,
-        p = document.createElement('p');
+        startChar = 0,
+        endChar = 0,
+        delimiterChar = '|';
 
     if (_HTTP) {
         _HTTP.open('GET', src, true);
-        _HTTP.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+        _HTTP.setRequestHeader('Content-Type', 'application/text;charset=UTF-8');
         _HTTP.send(null);
 
-        _HTTP.onprogress = function() {
-            p.innerHTML = 'Loading...';
-            p.setAttribute('class', 'fp-loading');
-            _self.divCont.appendChild(p);
+        _HTTP.onprogress = function(progressEvent) {
+            var chunkDecoded = progressEvent.srcElement.response.split(delimiterChar);
+            _self.totalNumOfFrames = parseInt(chunkDecoded[0]?chunkDecoded[0]:0);
+            _self.frameBase64Mime = chunkDecoded[1];
+            _self.videoFrames = chunkDecoded.splice(2,chunkDecoded.length-3);
+            callback(_self);
         };
 
         if (typeof(_HTTP.onload) !== undefined) {
             _HTTP.onload = function() {
-                _self.divCont.removeChild(p);
-                _self.jsonVideoFile = JSON.parse(this.responseText)
                 callback(_self);
                 _HTTP = null;
             };
         } else {
             _HTTP.onreadystatechange = function() {
                 if (_HTTP.readyState === 4) {
-                    _self.divCont.removeChild(p);
-                    _self.jsonVideoFile = JSON.parse(this.responseText)
                     callback(_self);
                     _HTTP = null;
                 }
